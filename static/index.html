@@ -113,14 +113,14 @@ body.dark{background:#111827;color:#e5e7eb}body.dark #ws{background:#263238}body
    <div class="tabs"><button class="on" data-t="pts">Points</button><button data-t="lay">Calques</button><button data-t="img">Image</button><button data-t="loc">Localisation</button><button data-t="exp">Tuiles &amp; export</button><button data-t="cloud">Cloud</button><button data-t="dem">MNT / OpenTopography</button><button data-t="proj">Projet</button></div>
    <div class="tab on" id="t-pts">
     <h4 style="margin:6px 8px 2px">Coordonnées des points de contrôle (EPSG:4326)</h4>
-    <small style="margin:0 8px 6px">Saisissez les pixels X/Y de l’image et la longitude/latitude. Les valeurs géographiques initiales sont des exemples à remplacer.</small>
+    <small style="margin:0 8px 6px">X/Y = position en pixels dans l’image (ex. X=884, Y=298). Longitude/latitude = position réelle sur Terre, en degrés décimaux. Une ligne n’est utilisable que si ses 4 valeurs sont remplies. Un seul point peut être enregistré, mais il faut au moins 3 points complets pour le géoréférencement affine.</small>
     <div style="overflow:auto;max-height:155px"><table id="gcp-table" style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th>Pt</th><th>Pixel X</th><th>Pixel Y</th><th>Longitude</th><th>Latitude</th></tr></thead><tbody>
-    <tr><td>P1</td><td><input type="number" id="gpx0" min="0" step="any" value="0"></td><td><input type="number" id="gpy0" min="0" step="any" value="0"></td><td><input type="number" id="glon0" step="any" value="2.000000"></td><td><input type="number" id="glat0" step="any" value="48.000000"></td></tr>
-    <tr><td>P2</td><td><input type="number" id="gpx1" min="0" step="any"></td><td><input type="number" id="gpy1" min="0" step="any" value="0"></td><td><input type="number" id="glon1" step="any" value="2.010000"></td><td><input type="number" id="glat1" step="any" value="48.000000"></td></tr>
-    <tr><td>P3</td><td><input type="number" id="gpx2" min="0" step="any"></td><td><input type="number" id="gpy2" min="0" step="any"></td><td><input type="number" id="glon2" step="any" value="2.010000"></td><td><input type="number" id="glat2" step="any" value="47.990000"></td></tr>
-    <tr><td>P4</td><td><input type="number" id="gpx3" min="0" step="any" value="0"></td><td><input type="number" id="gpy3" min="0" step="any"></td><td><input type="number" id="glon3" step="any" value="2.000000"></td><td><input type="number" id="glat3" step="any" value="47.990000"></td></tr>
+    <tr><td>P1</td><td><input type="number" id="gpx0" min="0" step="any"></td><td><input type="number" id="gpy0" min="0" step="any"></td><td><input type="number" id="glon0" step="any"></td><td><input type="number" id="glat0" step="any"></td></tr>
+    <tr><td>P2</td><td><input type="number" id="gpx1" min="0" step="any"></td><td><input type="number" id="gpy1" min="0" step="any"></td><td><input type="number" id="glon1" step="any"></td><td><input type="number" id="glat1" step="any"></td></tr>
+    <tr><td>P3</td><td><input type="number" id="gpx2" min="0" step="any"></td><td><input type="number" id="gpy2" min="0" step="any"></td><td><input type="number" id="glon2" step="any"></td><td><input type="number" id="glat2" step="any"></td></tr>
+    <tr><td>P4</td><td><input type="number" id="gpx3" min="0" step="any"></td><td><input type="number" id="gpy3" min="0" step="any"></td><td><input type="number" id="glon3" step="any"></td><td><input type="number" id="glat3" step="any"></td></tr>
     </tbody></table></div>
-    <div class="r" style="padding:4px 8px"><button id="b-gcp-fill">Remplir les coins de l’image</button><button id="b-gcp-apply" style="background:#fca311">Appliquer les 4 points</button></div>
+    <div class="r" style="padding:4px 8px"><button id="b-gcp-fill">Remplir les coins de l’image</button><button id="b-gcp-apply" style="background:#fca311">Appliquer les points renseignés</button></div>
     <div id="list"></div></div>
    <div class="tab" id="t-lay"><label class="addbtn">➕ Ajouter une image (collage)<input type="file" id="addimg" accept=".jpg,.jpeg,.png,.tif,.tiff,.webp" style="display:none"></label>
     <div id="lyr" style="margin-top:8px"></div>
@@ -548,11 +548,23 @@ $("#b-gcp-apply").onclick=()=>{
  try{
   if(!nat.w||!nat.h)throw "Chargez d'abord une image.";
   const g=[];
-  for(let i=0;i<4;i++){const vals=["gpx","gpy","glon","glat"].map(k=>Number($("#"+k+i).value));if(vals.some(v=>!Number.isFinite(v)))throw `Valeur manquante ou invalide au point P${i+1}.`;const [px,py,lon,lat]=vals;if(px<0||px>nat.w||py<0||py>nat.h)throw `P${i+1} : pixels hors de l'image (${nat.w} × ${nat.h}).`;if(lon < -180||lon>180||lat < -90||lat>90)throw `P${i+1} : coordonnées hors limites EPSG:4326.`;g.push({px,py,lon,lat})}
-  if(new Set(g.map(p=>p.px+","+p.py)).size<3)throw "Au moins trois positions pixel distinctes sont nécessaires.";
+  for(let i=0;i<4;i++){
+   const keys=["gpx","gpy","glon","glat"], raw=keys.map(k=>$("#"+k+i).value.trim());
+   if(raw.every(v=>v===""))continue;
+   if(raw.some(v=>v===""))throw `P${i+1} : remplissez X, Y, longitude et latitude, ou laissez toute la ligne vide.`;
+   const vals=raw.map(Number);
+   if(vals.some(v=>!Number.isFinite(v)))throw `P${i+1} : valeur numérique invalide.`;
+   const [px,py,lon,lat]=vals;
+   if(px<0||px>nat.w||py<0||py>nat.h)throw `P${i+1} : pixels hors de l'image (${nat.w} × ${nat.h}).`;
+   if(lon < -180||lon>180||lat < -90||lat>90)throw `P${i+1} : coordonnées hors limites EPSG:4326. Utilisez la longitude et latitude réelles, pas 884/298.`;
+   g.push({px,py,lon,lat});
+  }
+  if(!g.length)throw "Saisissez au moins une ligne complète. X/Y sont des pixels; longitude/latitude sont des coordonnées géographiques.";
+  if(new Set(g.map(p=>p.px+","+p.py)).size!==g.length)throw "Deux points ont les mêmes pixels X/Y. Corrigez les doublons.";
   commit();gcps=g;pend={img:null,geo:null};sel=-1;redraw();scheduleEst();
-  const b=g.reduce((a,q)=>[Math.min(a[0],q.lon),Math.min(a[1],q.lat),Math.max(a[2],q.lon),Math.max(a[3],q.lat)],[180,90,-180,-90]);if(b[2]>b[0]&&b[3]>b[1])map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:40});
-  st("4 points EPSG:4326 appliqués. Vérifiez leur position puis lancez « Géoréférencer ».");
+  if(g.length>=2){const b=g.reduce((a,q)=>[Math.min(a[0],q.lon),Math.min(a[1],q.lat),Math.max(a[2],q.lon),Math.max(a[3],q.lat)],[180,90,-180,-90]);if(b[2]>b[0]&&b[3]>b[1])map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:40});}
+  const need=MINP[$("#method").value]||3;
+  st(g.length<need?`${g.length} point(s) enregistré(s). Il en faut ${need} pour la méthode ${$("#method").selectedOptions[0].text}. Ajoutez les autres points avant de géoréférencer.`:`${g.length} points appliqués. Vérifiez leur position puis lancez « Géoréférencer ».`);
  }catch(e){st("⚠️ "+(e.message||e))}
 };
 
