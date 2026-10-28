@@ -129,18 +129,29 @@ def opentopography(req: OpenTopoReq):
 @app.post("/api/maps")
 async def upload(file: UploadFile = File(...)):
     mid = new_id(); d = DATA / mid; d.mkdir()
-    raw = d / "raw"; raw.write_bytes(await file.read())
     try:
-        with Image.open(raw) as im:
+        # Traiter depuis la mémoire : aucun fichier temporaire "raw" à renommer.
+        # Cela évite WinError 32 sous Windows (antivirus/indexeur/verrouillage du fichier).
+        data = await file.read()
+        if not data:
+            raise ValueError("le fichier sélectionné est vide")
+        from io import BytesIO
+        with Image.open(BytesIO(data)) as im:
+            im.verify()
+        with Image.open(BytesIO(data)) as im:
             fmt, mode = im.format, im.mode
-            if fmt == "JPEG" and mode == "RGB":           # original conservé tel quel (aucune recompression)
-                raw.replace(d / "orig.jpg"); shutil.copy(d / "orig.jpg", d / "source.jpg")
+            if fmt == "JPEG" and mode == "RGB":
+                # Conserver les octets originaux du JPEG, sans recompression.
+                (d / "orig.jpg").write_bytes(data)
+                shutil.copyfile(d / "orig.jpg", d / "source.jpg")
             else:
-                im2 = im.convert("RGBA" if "A" in mode or mode == "P" and "transparency" in im.info else "RGB")
-                im2.save(d / "orig.png"); shutil.copy(d / "orig.png", d / "source.png")
-        raw.unlink(missing_ok=True)
+                has_alpha = "A" in mode or (mode == "P" and "transparency" in im.info)
+                im2 = im.convert("RGBA" if has_alpha else "RGB")
+                im2.save(d / "orig.png", format="PNG")
+                shutil.copyfile(d / "orig.png", d / "source.png")
     except Exception as e:
-        shutil.rmtree(d, ignore_errors=True); raise HTTPException(400, f"image invalide : {e}")
+        shutil.rmtree(d, ignore_errors=True)
+        raise HTTPException(400, f"image invalide : {e}")
     save(d, status="uploaded", name=safe(Path(file.filename).stem))
     return img_info(d, mid)
 
