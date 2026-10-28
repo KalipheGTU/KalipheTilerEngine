@@ -1,0 +1,17 @@
+KalipheTiles — mise à jour des corrections
+
+Modifications incluses :
+- correction du saut du point lors du déplacement sur l'image (conservation du décalage entre clic et centre du point) ;
+- meilleure netteté de l'aperçu géoréférencé (image intermédiaire jusqu'à 4096 px et rendu d'aperçu jusqu'à 1800 px) ;
+- le bouton Enregistrer est maintenant dans la barre supérieure ;
+- chaque image ajoutée depuis « Ajouter une image » ouvre un espace de travail séparé dans un nouvel onglet du navigateur ;
+- cases à cocher de visibilité des images/calques conservées ;
+- options d'export de l'image originale, de l'image modifiée/rognée et d'un JSON contenant les dimensions en pixels, les points de contrôle et l'emprise géographique ;
+- bouton OpenTopography pour calculer l'emprise depuis les points de référencement, avec buffer ;
+- message d'erreur OpenTopography plus explicite pour les problèmes DNS et délais dépassés ;
+- vue initiale de la carte élargie à l'échelle mondiale.
+
+Notes :
+- Le navigateur ne peut pas imposer à Chrome un dossier de destination arbitraire. Le projet est enregistré dans le dossier KalipheTiles sous Documents, et l'emplacement des téléchargements dépend des paramètres de Chrome.
+- Aucun lien externe n'était présent dans la demande pour la carte du monde ; la carte initiale utilise le fond OpenStreetMap déjà configuré dans l'application.
+- Le téléchargement OpenTopography nécessite une connexion Internet fonctionnelle et une clé API valide ; un problème DNS local ne peut pas être corrigé uniquement par le logiciel, mais l'erreur est maintenant plus explicite.
